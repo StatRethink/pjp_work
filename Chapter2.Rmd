@@ -1,0 +1,102 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+## 2M1. 
+Recall the globe tossing model from the chapter. Compute and plot the grid approximate posterior distribution for each of the following sets of observations. In each case, assume a uniform prior for p.
+(1) W,W,W
+(2) W,W,W,L
+(3) L,W,W,L,W,W,W
+
+```{r}
+grid_size <- 40
+p_priors <- rep(1,grid_size)
+p_grid <- seq(from=0, to=1, length.out = grid_size)
+
+```
+(1)
+```{r}
+likelihood <- dbinom(3,size = 3,prob = p_grid)
+unstd_posterior <- likelihood*p_priors
+std_posterior <- unstd_posterior/sum(unstd_posterior)
+plot(p_grid,std_posterior)
+```
+
+(2)
+```{r}
+likelihood <- dbinom(3,size = 4,prob = p_grid)
+unstd_posterior <- likelihood*p_priors
+std_posterior <- unstd_posterior/sum(unstd_posterior)
+plot(p_grid,std_posterior)
+```
+
+(3)
+```{r}
+likelihood <- dbinom(5,size = 7,prob = p_grid)
+unstd_posterior <- likelihood*p_priors
+std_posterior <- unstd_posterior/sum(unstd_posterior)
+plot(p_grid,std_posterior)
+```
+
+
+
+
+## 2M2. 
+
+Now assume a prior for p that is equal to zero when p < 0.5 and is a positive constant when p ≥ 0.5. Again compute and plot the grid approximate posterior distribution for each of the sets of observations in the problem just above.
+
+```{r}
+grid_size <- 40
+p_grid <- seq(from=0, to=1, length.out = grid_size)
+p_priors <- ifelse(p_grid < 0.5, 0,1 )
+```
+
+(1)
+```{r}
+likelihood <- dbinom(3,size = 3,prob = p_grid)
+unstd_posterior <- likelihood*p_priors
+std_posterior <- unstd_posterior/sum(unstd_posterior)
+plot(p_grid,std_posterior)
+```
+
+(2)
+```{r}
+likelihood <- dbinom(3,size = 4,prob = p_grid)
+unstd_posterior <- likelihood*p_priors
+std_posterior <- unstd_posterior/sum(unstd_posterior)
+plot(p_grid,std_posterior)
+```
+
+(3)
+```{r}
+likelihood <- dbinom(5,size = 7,prob = p_grid)
+unstd_posterior <- likelihood*p_priors
+std_posterior <- unstd_posterior/sum(unstd_posterior)
+plot(p_grid,std_posterior)
+```
+
+## 2M3. 
+Suppose there are two globes, one for Earth and one for Mars. The Earth globe is 70% covered in water. The Mars globe is 100% land. Further suppose that one of these globes—you don’t know which—was tossed in the air and produced a “land” observation. Assume that each globe was equally likely to be tossed. Show that the posterior probability that the globe was the Earth, conditional on seeing “land” (Pr(Earth|land)), is 0.23.
+
+```{r}
+priors <- c(0.5,0.5)
+probs <- c(0.3,1)
+likelihood <- priors[1]*probs[1]
+posterior <- likelihood/sum(probs*priors)
+```
+
+
+## 2M4. 
+Suppose you have a deck with only three cards. 
+
+Each card has two sides, and each side is either black or white. One card has two black sides. The second card has one black and one white side. The third card has two white sides. 
+
+bb, bw, ww
+
+Now suppose all three cards are placed in a bag and shuffled. Someone reaches into the bag and pulls out a card and places it flat on a table. A black side is shown facing up, but you don’t know the color of the side facing down. 
+
+b
+
+Show that the probability that the other side is also black is 2/3. Use the counting method (Section 2 of the chapter) to approach this problem. This means counting up the ways that each card could produce the observed data (a black side facing up on the table).
+
