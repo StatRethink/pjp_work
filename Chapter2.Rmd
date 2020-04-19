@@ -88,15 +88,138 @@ posterior <- likelihood/sum(probs*priors)
 
 
 ## 2M4. 
-Suppose you have a deck with only three cards. 
-
-Each card has two sides, and each side is either black or white. One card has two black sides. The second card has one black and one white side. The third card has two white sides. 
-
-bb, bw, ww
+Suppose you have a deck with only three cards. Each card has two sides, and each side is either black or white. One card has two black sides. The second card has one black and one white side. The third card has two white sides. 
 
 Now suppose all three cards are placed in a bag and shuffled. Someone reaches into the bag and pulls out a card and places it flat on a table. A black side is shown facing up, but you don’t know the color of the side facing down. 
 
-b
-
 Show that the probability that the other side is also black is 2/3. Use the counting method (Section 2 of the chapter) to approach this problem. This means counting up the ways that each card could produce the observed data (a black side facing up on the table).
 
+Now suppose there are four cards: B/B, B/W, W/W, and another B/B. Again suppose a card is drawn from the bag and a black side appears face up. Again calculate the probability that the other side is black.
+
+Card  | Ways to produce side 1 = Black |  Way to produce side 2 = Black | Total ways way both sides black
+
+B, B  |  2                             |  1                             | 2
+W, W  |  0                             |  0                             | 0
+B, W  |  1                             |  0                             | 0
+
+Probability (Black, Black) = 
+Sum(Total ways way both sides black)/Sum(Ways to produce side 1 = Black) = (2 )/(2 + 1 ) = 2/3
+
+
+
+
+## 2M5. 
+Now suppose there are four cards: B/B, B/W, W/W, and another B/B. Again suppose a card is drawn from the bag and a black side appears face up. Again calculate the probability that the other side is black.
+
+Card  | Ways to produce side 1 = Black |  Way to produce side 2 = Black | Total ways way both sides black
+
+B, B  |  2                             |  1                             | 2
+W, W  |  0                             |  0                             | 0
+B, W  |  1                             |  0                             | 0
+B, B  |  2                             |  1                             | 2
+
+Probability (Black, Black) = 
+Sum(Total ways way both sides black)/Sum(Ways to produce side 1 = Black) = (2 + 2)/(2 + 1 + 2) = 4/5 
+
+
+## 2M6. 
+Imagine that black ink is heavy, and so cards with black sides are heavier than cards with white sides. As a result, it’s less likely that a card with black sides is pulled from the bag. So again assume there are three cards: B/B, B/W, and W/W. After experimenting a number of times, you conclude that for every way to pull the B/B card from the bag, there are 2 ways to pull the B/W card and 3 ways to pull the W/W card. Again suppose that a card is pulled and a black side appears face up. Show that the probability the other side is black is now 0.5. Use the counting method, as before.
+
+Card  | Ways to produce side 1 = Black |  Way to produce side 2 = Black | Total ways way both sides black
+
+B, B  | 2*1 = 2                       |  1                             | 2
+W, W  | 0*3 = 0                       |  0                             | 0
+B, W  | 1*2 = 2                       |  0                             | 0
+
+Probability (Black, Black) = 
+Sum(Total ways way both sides black)/Sum(Ways to produce side 1 = Black) = 2/4 = 0.5
+
+
+## 2M7. 
+
+Assume again the original card problem, with a single card showing a black side faceup.Before looking at the other side, we draw another card from the bag and lay it face up on the table. The face that is shown on the new card is white. Show that the probability that the first card, the one showing a black side, has black on its other side is now 0.75. Use the counting method, if you can. Hint: Treat this like the sequence of globe tosses, counting all the ways to see each observation, for each possible first card.
+
+First Card  | Ways to produce draw 1 = Black |  Way to produce draw 2 = White | Total ways to get B, W
+
+B, B        | 2                              |  3                             | 6
+W, W        | 0                              |  2                             | 0
+B, W        | 1                              |  2                             | 2
+
+Probability first card = B,B = 6/(6+2) = 6/8 = 3/4 = 0.75
+
+
+
+
+## 2H1. 
+
+Suppose there are two species of panda bear. Both are equally common in the wild and live in the same places. They look exactly alike and eat the same food, and there is yet no genetic assay capable of telling them apart. They differ however in their family sizes. Species A gives birth to twins 10% of the time, otherwise birthing a single infant. Species B births twins 20% of the time, otherwise birthing singleton infants. Assume these numbers are known with certainty, from many years of field research.
+
+Now suppose you are managing a captive panda breeding program. You have a new female panda of unknown species, and she has just given birth to twins. What is the probability that her next birth will also be twins?
+
+P(2nd birth = twins) = P(Twins|A)*P(A) + P(Twins|B)*P(B)
+    = 0.1P(A) + 0.2P(B)
+    
+We calculate prior of P(A) using info from first birth: 
+
+P(A|birth 1 = Twins) = 
+  P(Twins |A)*P(A)/
+  [P(Twins|A)*P(A) + P(Twins|B)*P(B)]
+  = (0.10*0.5)/
+    [0.10*0.5 + 0.20*0.5]
+    = 0.05/(0.05 + 0.10) = 0.05/0.15 = 5/15 = 1/3
+    
+P(B| birth 1 = Twins) = 1 - 1/3 = 2/3
+
+P(2nd birth = twins) = 0.1P(A) + 0.2P(B)
+  = 0.1/3 +  0.2/3 = 0.5/3 = 0.166 ~ 16%. 
+  
+## 2H2. 
+
+Recall all the facts from the problem above. Now compute the probability that the panda we have is from species A, assuming we have observed only the first birth and that it was twins.
+
+P(A|birth 1 = Twins) = 
+  P(Twins |A)*P(A)/
+  [P(Twins|A)*P(A) + P(Twins|B)*P(B)]
+  = (0.10*0.5)/
+    [0.10*0.5 + 0.20*0.5]
+    = 0.05/(0.05 + 0.10) = 0.05/0.15 = 5/15 = 1/3 = 0.26 ~ 26.6%
+    
+## 2H3. 
+Continuing on from the previous problem, suppose the same panda mother has a second birth and that it is not twins, but a singleton infant. Compute the posterior probability that this panda is species A.
+
+P(A|Data) = P(Data|A)*Prior(A)/
+            (P(Data|A)*Prior(A) + P(Data|B)*Prior(B))
+            
+        = 0.90*0.10 * 0.5 / 
+        (0.90*0.10*0.5 + 0.80*0.20*0.5)
+         
+        = 0.36
+        
+P(B|Data) = 0.64
+        
+## 2H4. 
+A common boast of Bayesian statisticians is that Bayesian inference makes it easy to use all of the data, even if the data are of different types.
+So suppose now that a veterinarian comes along who has a new genetic test that she claims can identify the species of our mother panda. But the test, like all tests, is imperfect. This is the information you have about the test:
+  • The probability it correctly identifies a species A panda is 0.8. 
+  • The probability it correctly identifies a species B panda is 0.65.
+  
+The vet administers the test to your panda and tells you that the test is positive for species A. 
+
+First ignore your previous information from the births and compute the posterior probability that your panda is species A. Then redo your calculation, now using the birth data as well.
+
+
+(1) P(A|Test = A) = P(Test = A | A) * P(A) /
+                          (P(Test = A |A) * P(A) + P(Test = A |B)*P(B))
+                          = 0.80/(0.80 + 0.20) = 0.80
+                          
+(2) = 0.80*0.36 / 
+      (0.80*0.36 + 0.20*0.64) 
+      = 0.6923
+      
+      
+              
+        
+    
+
+
+  
