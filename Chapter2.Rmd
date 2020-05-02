@@ -162,8 +162,10 @@ P(2nd birth = twins) = P(Twins|A)*P(A) + P(Twins|B)*P(B)
 We calculate prior of P(A) using info from first birth: 
 
 P(A|birth 1 = Twins) = 
+
   P(Twins |A)*P(A)/
   [P(Twins|A)*P(A) + P(Twins|B)*P(B)]
+  
   = (0.10*0.5)/
     [0.10*0.5 + 0.20*0.5]
     = 0.05/(0.05 + 0.10) = 0.05/0.15 = 5/15 = 1/3
@@ -200,21 +202,33 @@ P(B|Data) = 0.64
 ## 2H4. 
 A common boast of Bayesian statisticians is that Bayesian inference makes it easy to use all of the data, even if the data are of different types.
 So suppose now that a veterinarian comes along who has a new genetic test that she claims can identify the species of our mother panda. But the test, like all tests, is imperfect. This is the information you have about the test:
+
   • The probability it correctly identifies a species A panda is 0.8. 
   • The probability it correctly identifies a species B panda is 0.65.
   
+  True Species| Test Result
+  A           | 80% - A; 20% - B 
+  B           | 35% - A; 65% - b
+  
 The vet administers the test to your panda and tells you that the test is positive for species A. 
 
-First ignore your previous information from the births and compute the posterior probability that your panda is species A. Then redo your calculation, now using the birth data as well.
+First ignore your previous information from the births and compute the posterior probability that your panda is species A. 
 
 
 (1) P(A|Test = A) = P(Test = A | A) * P(A) /
                           (P(Test = A |A) * P(A) + P(Test = A |B)*P(B))
-                          = 0.80/(0.80 + 0.20) = 0.80
+                          = 0.80/(0.80 + 0.35) = 0.6956522 
                           
-(2) = 0.80*0.36 / 
-      (0.80*0.36 + 0.20*0.64) 
-      = 0.6923
+                          // P(A) = P(B), so we cancel them across the Numerator and Denominator.
+                          
+                          
+Then redo your calculation, now using the birth data as well.
+                          
+(2) 
+Using birth data, we update our priors so that P(A) = 0.36 and P(B) = 0.64
+P(A|Test = A)  = 0.80*0.36 / 
+                  (0.80*0.36 + 0.35*0.64) 
+                  = 0.5625
       
       
               
