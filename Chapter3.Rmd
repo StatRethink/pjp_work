@@ -1,6 +1,6 @@
 ---
 title: "Chapter3"
-output: html_document
+output: github_document
 ---
 
 ## What's the Chapter about?
@@ -200,15 +200,34 @@ Now compare 10,000 counts of boys from 100 simulated first borns only to the num
 
 ```{r}
 births_H4 <- rbinom(1e4, 100,prob = 0.5545546)
-actual_boys <- sum(birth1)
+actual_boys_H4 <- sum(birth1)
 ```
 
 ```{r}
 plot(density(births_H4))
-abline(v=actual_boys, col="red",lty=2)
+abline(v=actual_boys_H4, col="red",lty=2)
 ```
 
-Ans: Ooof, the fit looks off. 
+Ans: Ooof, the fit looks off.
 
 ### 3H5. 
-The model assumes that sex of first and second births are independent. To check this assumption, focus now on second births that followed female first borns. Compare 10,000 simulated counts of boys to only those second births that followed girls. To do this correctly, you need to count the number of first borns who were girls and simulate that many births, 10,000 times. Compare the counts of boys in your simulations to the actual observed count of boys following girls. How does the model look in this light? Any guesses what is going on in these data?
+The model assumes that sex of first and second births are independent. To check this assumption, focus now on second births that followed female first borns. Compare 10,000 simulated counts of boys to only those second births that followed girls. To do this correctly, you need to count the number of first borns who were girls and simulate that many births, 10,000 times. 
+Compare the counts of boys in your simulations to the actual observed count of boys following girls. How does the model look in this light? Any guesses what is going on in these data?
+
+```{r}
+female_first_borns <- which(birth1 == 0)
+births_post_female <- birth2[female_first_borns]
+actual_boys_2ndborn <- sum(births_post_female)
+```
+
+```{r}
+births_H5 <- rbinom(1e4, length(female_first_borns), prob = 0.5545546)
+simulated_boys_2ndborn <- mean(births_H5)
+```
+
+```{r}
+plot(density(births_H5))
+abline(v=actual_boys_2ndborn, col="red",lty=2)
+```
+
+
