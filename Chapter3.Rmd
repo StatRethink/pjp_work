@@ -239,10 +239,19 @@ print(sum)
 ### 3M6. 
 Suppose you want to estimate the Earth’s proportion of water very precisely. Specifically, you want the 99% percentile interval of the posterior distribution of p to be only 0.05 wide. This means the distance between the upper and lower bound of the interval should be 0.05. How many times will you have to toss the globe to do this?
 
+Approaches:
+
+1. Brute force: Write a function that calculates the PI interval width, and iterate it over sample sizes
+Complications: Depends on priors, and true probability, I suppose
+
+2. Analytical: Somehow express PI width as a function of true probability and sample size? 
+
+
 ## Hard Questions
 
 Introduction. The practice problems here all use the data below. These data indicate the gender
 (male=1, female=0) of officially reported first and second born children in 100 two-child families.So for example, the first family in the data reported a boy (1) and then a girl (0). The second family reported a girl (0) and then a boy (1). The third family reported two girls. 
+
 ```{r}
 birth1 <- c(1,0,0,0,1,1,0,1,0,1,0,0,1,1,0,1,1,0,0,0,1,0,0,0,1,0,
 0,0,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1,0,0,1,1,0,1,0,0,0,0,0,0,0,
