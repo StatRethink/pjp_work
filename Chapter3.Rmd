@@ -1,6 +1,6 @@
 ---
 title: "Chapter3"
-output: github_document
+output: html_document
 ---
 
 ## What's the Chapter about?
@@ -97,6 +97,7 @@ prior <- rep( 1 , 1000 )
 likelihood <- dbinom( 8 , size=15 , prob=p_grid )
 posterior <- likelihood * prior
 posterior <- posterior / sum(posterior)
+plot(x=p_grid, y=posterior, xlab = "% of water coverage", ylab = "Associated posterior probability", main = "Simulated posterior probability after \n drawing 8 water in 15 globe tosses")
 ```
 
 ### 3M2. 
@@ -105,6 +106,7 @@ culate the 90% HPDI for p.
 ```{r}
 set.seed(100)
 samples <- sample( p_grid , prob=posterior , size=1e4 , replace=TRUE )
+plot(density(samples))
 ```
 
 ```{r}
@@ -115,10 +117,59 @@ Ans: [0.3343343, 0.7217217]
 ### 3M3. 
 Construct a posterior predictive check for this model and data. This means simulate the distribution of samples, averaging over the posterior uncertainty in p. What is the probability of observing 8 water in 15 tosses?
 
+```{r}
+p_grid <- seq( from=0 , to=1 , length.out=1000 )
+prior <- rep( 1 , 1000 )
+likelihood <- dbinom( 8 , size=15 , prob=p_grid )
+posterior <- likelihood * prior
+posterior <- posterior / sum(posterior)
+set.seed(100)
+samples <- sample( p_grid , prob=posterior , size=1e4 , replace=TRUE )
+```
+
+I think what McL is trying to do is something like
+
+$$ P(X=8) = \sum_{\theta}(P(x = 8| \theta) \space P(\theta)) $$
+But, the path to demonstrate this feels a bit circuitous. 
+$P(\theta)$ gets incorporated into out calcs via the `samples` from the prior_grid we pick above.
+$(P(x = 8| \theta)$ gets incorporated via the simulated_samples we generate using `rbinom` below.
+
+So, in effect, what we do is:
+1. Pick N samples of $\theta$, where each value is picked with probability equal to the posterior probability of the value. So, you end up with a vector of length N, where each theta value appears $N*P(\theta)$ times.
+2. We then feed these N samples of $\theta$ to `rbinom` with 15 trials. For each value of theta, the `rbinom` function outputs the expected number of successes.
+3. We then check the proportion of samples returning 8 successes. 
+
+```{r}
+simulated_samples <- rbinom(1e4,15,samples)
+hist(simulated_samples,freq = FALSE)
+print(sum(simulated_samples == 8 )/length(simulated_samples))
+```
+
+Let's try and check this answer by calculating  $ P(X=8) = \sum_{\theta}(P(x = 8| \theta) \space P(\theta)) $ directly
+
+```{r}
+length = 1e4
+p_grid <- seq( from=0 , to=1 , length.out=length )
+prior <- rep( 1 , length)
+likelihood <- dbinom( 8 , size=15 , prob=p_grid )
+posterior <- likelihood * prior
+posterior <- posterior / sum(posterior)
+```
+
+```{r}
+sum = 0
+for (i in 1:length){
+  theta <- p_grid[i]
+  p_theta <- posterior[i]
+  sum = sum + dbinom(8,15,theta)*p_theta
+}
+print(sum)
+```
+
 
 
 ### 3M4. 
-Using the posterior  distributionconstructed from the  new(8/15) data, now calculate the probability of observing 6 water in 9 tosses.
+Using the posterior  distribution constructed from the  new (8/15) data, now calculate the probability of observing 6 water in 9 tosses.
 
 ```{r}
 
@@ -126,7 +177,7 @@ Using the posterior  distributionconstructed from the  new(8/15) data, now calcu
 
 
 ### 3M5. 
-Startoverat 3M1, but now use a prior that is zero below p=0.5 anda constant above p=0.5. This corresponds to prior information that a majority of the Earth’s surface is water. Repeat each problem above and compare the inferences. What difference does the better prior make? If it helps, compare inferences (using both priors) to the true value p = 0.7.
+Startoverat 3M1, but now use a prior that is zero below p=0.5 and a constant above p=0.5. This corresponds to prior information that a majority of the Earth’s surface is water. Repeat each problem above and compare the inferences. What difference does the better prior make? If it helps, compare inferences (using both priors) to the true value p = 0.7.
 
 ### 3M6. 
 Suppose you want to estimate the Earth’s proportion of water very precisely. Specifically, you want the 99% percentile interval of the posterior distribution of p to be only 0.05 wide. This means the distance between the upper and lower bound of the interval should be 0.05. How many times will you have to toss the globe to do this?
@@ -226,7 +277,8 @@ simulated_boys_2ndborn <- mean(births_H5)
 ```
 
 ```{r}
-plot(density(births_H5))
+plot(density(births_H5), 
+     xlab = "No of boys born", ylab = "Probability", main = "Predicted # of boys v/s Observed")
 abline(v=actual_boys_2ndborn, col="red",lty=2)
 ```
 
