@@ -695,6 +695,11 @@ where hi is the height of individual i and wi is the weight (in kg) of individua
 Can you interpret the resulting estimates?
 
 ```{r}
+library(rethinking)
+data(Howell1)
+d2 <- Howell1
+
+d2 <- d2[ d2$age < 18 , ]
 
 # Create a variable to hold the log of weight
 d2$log_weight <- log(d2$weight)
@@ -704,7 +709,7 @@ q4h_3 <- quap(
   alist(
     height ~ dnorm(mu, sigma),
     mu <- a + b*(log_weight),
-    a ~ dnorm(110,20),
+    a ~ dnorm(30,20),
     b ~ dlnorm(0,1),
     sigma ~ dunif(0,50)
   ),
@@ -722,15 +727,13 @@ round(coef(q4h_3),3)
 Interpretation: 
 We know that  beta is 
 
-$$\beta = \frac{\Delta height}{\Delta log weight} =  \frac{\Delta height}{\frac{\Delta weight}{weight}} \\
+$$
+\beta = \frac{\Delta height}{\Delta log weight} =  \frac{\Delta height}{\frac{\Delta weight}{weight}} \\
 \beta = weight * \frac{\Delta height}{\Delta weight} \\
 \implies \Delta height = \beta *\frac{\Delta weight}{weight} \\
 \textrm{In other words, the impact of unit increase in weight is lower at higher weights. } \\
-
 \textrm{A 10kg increase in weight will result in a 4x higher increase in hight at 15 kg weight, compared to 60 kg weight} \\
-
 \textrm{Thus, taking the log of a predictor variable dampens the effect of higher values of that variable}
-
 $$
 
 (b) Begin with this plot:
