@@ -1,0 +1,279 @@
+---
+title: "Chapter4"
+output: html_document
+
+---
+
+```{r include=FALSE}
+# Setting Knit options for the document
+knitr::opts_chunk$set( message=FALSE, warning=FALSE)
+```
+
+# Notes from the Chapter
+
+## 4.1: Why is it ok to use Gaussian distribution as a model?
+We discusss reasons why modelling some variable or phonomenon as Gaussian is ok. 
+- Ontological: As a category, Gaussian distributions are faily common in the wild. 
+- Epistemological: If all we know is the average value of a variable, and a sense of the dispersion of the variable, then the Gaussian distribution is the most conservative distribution incorporating that information. 
+
+## 4.2 
+- We discusss the `~` notation used to map variables to statistical distributions/ models. 
+
+## 4.3 A Gaussian model for height
+
+- Our goal in this chapter is to fit a $Normal(\mu, \sigma)$ distribution to a given dataset, subject to a given prior, and to obtain the most likely values for $\mu$ and $\sigma$. 
+- From the typical Bayesian updating we have 
+$$ P(\theta | X) = \frac{P(X|\theta) P(\theta)}{P(X)}$$
+However, here $\theta$ is a vector of two parameters $\mu$ and $\sigma$, giving us
+
+$$ P(\mu, \sigma | X) = \frac{P(X|\mu, \sigma) P(\mu, \sigma)}{P(X)}$$
+We're modelling the data as Gaussian, meaning $P(X|\mu, \sigma)$ = $Normal(X=x_0| \mu, \sigma)$
+We're also silently asssuming that $\mu$ and $\sigma$ are independent, giving us $P(\mu, \sigma)$ = $P(\mu)*P(\sigma)$
+
+### Generating the posterior -- the usual grid approximation method
+
+```{r}
+library(rethinking)
+data <- data(Howell1)
+d2 <- Howell1[Howell1$age >= 18,]
+
+mu.list <- seq( from=150, to=160 , length.out=100 )
+sigma.list <- seq( from=7 , to=9 , length.out=100 )
+post <- expand.grid( mu=mu.list , sigma=sigma.list )
+
+```
+
+post$LL calculates the log likelihood of the data for every mu, sigma pair i.e log of P(X|mu, sigma)
+
+```{r}
+post$LL <- sapply( 1:nrow(post) , function(i) sum(
+    dnorm( d2$height , post$mu[i] , post$sigma[i] , log=TRUE ) ) )
+```
+
+post$Prod is log of (Likelihood * prior ) log(likelihood) + log(prior)
+```{r}
+post$prod <- post$LL + dnorm( post$mu , 178 , 20 , TRUE ) +
+    dunif( post$sigma , 0 , 50 , TRUE )
+```
+
+So, now each row contains the log of LikelihoodxPrior against the specific mu-sigma pair in that row. Now, to convert log into probability, we need to exponentiate it. 
+But, since the logged figures are large negative numbers floating point arithmetic errors will simply send exp(large negative value) to zero. To avoid this, instead of exp(LL), we calculate exp(LL - max(LL)), LL - max(LL) will return a small positive value. 
+
+```{r}
+scale_constant <- max(post$prod)
+post$prod2 <- exp(post$prod - scale_constant)
+```
+
+All that is now left is to re-scale the probabilities (the denominator term P(X)). We may naturally ask, shouldn't we re-adjust the probabilities to offset the scaling factor? 
+But we can be clever here. Notice that $\exp(x_i-y) = \frac{\exp(x_i)}{\exp(y)} = \frac{\exp(x_i)}{\exp(\rm{scale-constant})} = \exp(x_i)*\lambda$
+Giving us $\frac{\exp(x_i - y)}{\sum_iexp(x_i -y)} = \frac{exp(x_i)*\lambda}{\sum_iexp(x_i)*\lambda} = \frac{exp(x_i)}{\sum_iexp(x_i)}$
+
+In short, no we don't need to re-adjust to offset the scaling factor, leaving us with:
+
+```{r}
+post$prob <- post$prod2/sum(post$prod2)
+image_xyz( post$mu , post$sigma , post$prob )
+```
+
+We notice that the values for `sigma` are much more dispersed, than the values for `mu`. We can plot the posterior for mu and sigma to confirm this. 
+
+```{r}
+plot(post$mu, post$prob)
+plot(post$sigma, post$prob)
+```
+
+### Is the posterior Gaussian? 
+ Well, the posterior for `mu` looks Gausssian, the posterior for `sigma` has a thickeer and longer right tail. 
+
+ss
+### 4.3.4 Sampling the posterior -- good old sample proportional to posterior probability
+```{r}
+sample.rows <- sample( 1:nrow(post) , size=1e4 , replace=TRUE ,
+    prob=post$prod2 )
+sample.mu <- post$mu[ sample.rows ]
+sample.sigma <- post$sigma[ sample.rows ]
+plot( sample.mu , sample.sigma , cex=0.5 , pch=16 , col=col.alpha(rangi2,0.1) )
+smoothScatter( sample.mu , sample.sigma , cex=0.5 , pch=16 , col=col.alpha(rangi2,0.1) )
+```
+
+### 4.3.5 Generating and Sampling the posterior -- Quadratic approximation
+- McLerath does not focus on 'what' the Quadratic approximation does, or even 'how' QAP does what it does. He dives straight into how to work with QAP. So, bummer. 
+- So, my sense is QAP approximates the posterior as a multivariate normal distribution with two paramters mu and sigma. 
+- And a multivariate normal distribution is fully defined by the vector of the parameter means and a covariance matrix b/w the parameters. So, effectlvey, the QAP extracts out the mean vector and covariance matrix for the posterior.
+- Not sure what the justification for this approach is. Are there limitations to this approach? 
+
+- Sampling from the posterior is equivalent to generating a multivariate normal distribution using the mean vector and covariance matrix. 
+
+```{r}
+data(Howell1)
+d <- Howell1
+d2 <- d[ d$age >= 18 , ]
+
+flist <- alist(
+    height ~ dnorm( mu , sigma ),
+    mu ~ dnorm( 178 , 20 ),
+    sigma ~ dunif( 0 , 50 )
+)
+
+start <- list(
+    mu=mean(d2$height),
+    sigma=sd(d2$height)
+)
+
+m4.1 <- quap(flist , data=d2 , start=start)
+post_qap <- extract.samples( m4.1 , n=1e4 )
+```
+
+```{r}
+plot(post_qap, col=col.alpha(rangi2,0.1))
+plot(density(post_qap$sigma), main="QAP v/s Grid Sampling")
+lines(density(sample.sigma),lwd=2,lty=2, col="blue")
+# Looks like relative error in the tails is large. 
+```
+
+
+## 4.4 Linear Prediction
+```{r}
+ plot( d2$height ~ d2$weight )
+```
+
+Clearly, there's a strong positive relationship b/w weight and height. 
+
+### Section 1: Setting up the linear prediction model
+
+$$ 
+height_i \sim Normal(\mu_i,\sigma) \\
+\mu_i = \alpha + \beta(x_i- \bar{x}) \\
+\alpha \sim Normal(178, 20) \\
+\beta \sim Normal(0,10) \\
+\sigma \sim Uniform(0,50) 
+$$
+
+#### Sanity check the priors
+
+McLerath sanith checks the priors for $\beta$. We see that a Normal(0,10) priors results in a bunch of lines where height seems to decrease with average weight, something patently false as observed from our inspection. We revise our model to make $\beta$ positive always. 
+
+$$\beta \sim LogNormal(0,1)$$
+
+The log-normal distribution looks like this:
+
+```{r}
+x_seq <- seq(from=-10, to = 10, length.out = 1000)
+plot(x_seq,dlnorm(x_seq, 0 , 2),type="l",lwd=2)
+lines(x_seq,dlnorm(x_seq, 0 , 1.5 ),col="blue",lwd=2)
+lines(x_seq,dlnorm(x_seq, 0 , 1 ),col="red",lwd=3)
+lines(x_seq,dlnorm(x_seq, 0 , 0.75 ),col="brown",lwd=2)
+lines(x_seq,dlnorm(x_seq, 0 , 0.50 ),col="yellow",lwd=2)
+```
+
+So basically, the log normal distro assigns 0 probability to negative values, and has a very sharp probability spike around the mean value, subject to the dispersion parameter. 
+
+#### An attempted grid search to generate the posterior.
+Grid search becomes unmanageably large real quick. Save this for later. 
+
+```{r}
+# library(rethinking)
+# data(Howell1)
+# d <- Howell1
+# d2 <- d[ d$age >= 18 , ]
+# define the average weight, x-bar
+# xbar <- mean(d2$weight)
+# sigma.list <- runif( 100 , 0 , 50 )
+# alpha.list <- rnorm( 100 , 178 , 20 )
+# beta.list <- rnorm( 100 , 0 , 10 )
+# post <- expand.grid( alpha=alpha.list , beta=beta.list, xi_xbar = d2$height-xbar)
+# post$mu_i <- post$alpha + post$beta*post$xi_xbar
+# post_height <- expand.grid(mu_i = post$mu_i,sigma= sigma.list)
+# post_height$LL <- sapply(1:nrow(post_height) ,
+#                          function(i) sum(dnorm(d2$height, post_height$mu_i[i], post_height$sigma[i],log = TRUE )))
+
+```
+
+#### Using QUAP to fit the model and generate a posterior
+
+```{r}
+library(rethinking)
+data(Howell1)
+d <- Howell1
+d2 <- d[ d$age >= 18 , ]
+# define the average weight, x-bar
+xbar <- mean(d2$weight)
+
+# Fit the model
+m4_3 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b*(weight-xbar),
+    a ~ dnorm(178,20),
+    b ~ dlnorm(0,1),
+    sigma ~ dunif(0,50)
+  ),
+  data = d2
+)
+```
+
+```{r}
+precis(m4_3)
+coef(m4_3)
+round(vcov(m4_3),3)
+```
+
+We can now examine the posterior distribution we just generated. 
+
+```{r}
+post_m4_3 <- MASS::mvrnorm( n=1e4 , mu=coef(m4_3) , Sigma=vcov(m4_3) )
+plot(density(post_m4_3[,"a"]))
+```
+
+Note that we are implicitly following the resampling approach to posterior probability for parameters. In other words, the relatively posterior probability of parameter values is encoded via the # of times that value appearss in our resampled vector. There is no separaate vector or function to generate posterior probaabilities.
+
+##### What is the predicted averagee height over all weight levels? 
+
+$$
+E(height) = E(Normal(\mu_i,\sigma)) = E(\mu_i) = E(\alpha + \beta(x-\bar{x}))
+$$
+Since we have alpha and beta as independent (Check the covariance matrix for confirmation), we have
+$$
+E(\alpha + \beta(x-\bar{x}) = E(\alpha) + E(\beta)*E(x) - E(E(\bar{x})) = E(\alpha)
+$$
+Using the sample mean as the estimator, we get $E(\alpha)$ = `mean(post_m4_3[,"a"])`
+
+```{r}
+mean(post_m4_3[,"a"])
+```
+
+##### How is average height related to weight? 
+
+What does this question even mean? Let's interpret it to mean the locus of the average height conditional on weight. 
+
+$$
+E(height | weight) = E(Normal(\mu_i,\sigma)| weight) \\
+= E(\mu_i|weight) = E(\alpha + \beta(x-\bar{x})|x) \\
+= E(\alpha|x) + E(\beta|x)*E(x|x) - E(\bar{x}|x) \\
+= E(\alpha|x) + E(\beta|x)*(x - \bar{x})
+$$
+
+Now, how do we find things like $E(\alpha|x)$? Well, if you think about it, we have defined $\alpha$ and $\beta$ to be independent of x. So, $E(\alpha|x) = E(\alpha)$ 
+
+The locus of conditional means then is 
+$$E(\alpha) + E(\beta)*(x - \bar{x})$$
+```{r}
+e_alpha <- mean(post_m4_3[,"a"])
+e_beta <- mean(post_m4_3[,"b"])
+plot( height ~ weight , data=d2 , col=rangi2 )
+curve( e_alpha + e_beta*(x - xbar) , add=TRUE )
+```
+
+##### What is the uncertainty in the relationship b/w weight and average height for that weight? 
+
+So, we want $Variance(\mu_i|weight)$
+
+```{r}
+mu_at_weight <- function(weight, sample_matrix, avg_weight) {
+                        sample_matrix[,"a"] + sample_matrix[,"b"]*(weight - avg_weight)
+                  }
+
+mu_at_50 <- mu_at_weight(50, post_m4_3, xbar) 
+plot(density(var_at_50))
+```
+
