@@ -655,11 +655,18 @@ mean_height_sim <- sapply(weight_seq, function(weight){
                 post_q4h_2[,"a"] + post_q4h_2[,"b"]*(weight-xbar)})
 mean_height_PI <- apply(mean_height_sim,2,rethinking::PI,prob=0.89)
 
+# Calculate the actual heights and the 89% interval for heights
+height_sim <- sapply(weight_seq, function(weight)
+                rnorm(1000, mean=post_q4h_2[,"a"] + post_q4h_2[,"b"]*(weight-xbar), sd=post_q4h_2[,"sigma"]))
+height_PI <- apply(height_sim,2,rethinking::PI,prob=0.89)
+
 ```
 
 ```{r}
 plot(height ~ weight, data=d2) # Let's pick something like 110 as mean height with sd = 20
 curve(mean(post_q4h_2[,"a"]) + mean(post_q4h_2[,"b"])*(x-xbar), from=0, to = 40, n = 50, add = TRUE)
+shade(mean_height_PI, weight_seq)
+shade(height_PI, weight_seq)
 ```
 
 (c) What aspects of the model fit concern you? Describe the kinds of assumptions you would change, if any, to improve the model. You don’t have to write any new code. Just explain what the model appears to be doing a bad job of, and what you hypothesize would be a better model.
