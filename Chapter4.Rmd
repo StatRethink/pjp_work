@@ -162,8 +162,8 @@ x_seq <- seq(from=-10, to = 10, length.out = 1000)
 plot(x_seq,dlnorm(x_seq, 0 , 2),type="l",lwd=2)
 lines(x_seq,dlnorm(x_seq, 0 , 1.5 ),col="blue",lwd=2)
 lines(x_seq,dlnorm(x_seq, 0 , 1 ),col="red",lwd=3)
-lines(x_seq,dlnorm(x_seq, 0 , 0.75 ),col="brown",lwd=2)
-lines(x_seq,dlnorm(x_seq, 0 , 0.50 ),col="yellow",lwd=2)
+lines(x_seq,dlnorm(x_seq, 0 , 0.5 ),col="brown",lwd=2)
+lines(x_seq,dlnorm(x_seq, 1 , 1 ),col="yellow",lwd=2)
 ```
 
 So basically, the log normal distro assigns 0 probability to negative values, and has a very sharp probability spike around the mean value, subject to the dispersion parameter. 
@@ -274,6 +274,236 @@ mu_at_weight <- function(weight, sample_matrix, avg_weight) {
                   }
 
 mu_at_50 <- mu_at_weight(50, post_m4_3, xbar) 
-plot(density(var_at_50))
+plot(density(mu_at_50))
 ```
 
+```{r}
+weight.seq <- seq( from=25 , to=70 , by=1 )
+mu <- sapply( weight.seq , mu_at_weight, sample_matrix=post_m4_3, avg_weight=xbar )
+  ## So each row in the mu matrix corresponds to a value of my calculated using the values in one sample from the posterior.
+  ## Each column corresponds to one unique value from the sequence 25 to 70.
+mu.mean <- apply( mu , 2 , mean ) ## We average over each column to obtain the average mu for a particular weight
+mu.CI <- apply( mu , 2 , PI , prob=0.89 ) ## We also find the 89% CI for mu against each weight column
+```
+
+```{r}
+# use type="n" to hide raw data
+plot( height ~ weight , d2 , type="n" )
+
+# Sample a few rows
+plot_rows <- sample(1:nrow(mu),1000)
+
+# Loop over sampled rows, and plot the mu values in the row
+for (i in plot_rows){
+  points( weight.seq , mu[i,] , pch=16 , col=col.alpha(rangi2,0.1))  
+}
+
+plot(density(mu_at_50))
+
+```
+
+So this graph suggests that each of these clumps of points is a normal distribution with mean centered at $\mu|weight$
+
+Here's a small graph to show that the uncertainty in mu (average weight) is a function of distance from the mean weight (xbar).
+30 and 60 are at the same distance from xbar ~ 15 kg. Their 89% CI has the same width. 
+
+```{r}
+mu_CI_width <- mu.CI[2,] - mu.CI[1,]
+plot(weight.seq, mu_CI_width)
+abline(h=mu_CI_width[which(weight.seq==60)])
+abline(v=c(30,60))
+```
+
+
+
+
+##### Model height itself, rather than average height
+
+We have $height_i \sim Normal(\mu_i,\sigma)$. In the previous sections we generated $\sigma$ using the $\alpha$ and $\beta$ values from the posterior. We will not use the same $\alpha$ and $\beta$ values along with $\sigma$ values to simulate height
+
+```{r}
+# Sampled posterior is in post_m4_3
+# for each weight
+#    do: 
+#     mu_vector = a + b*(weight - avg weight)
+#     sigma_vector = sigma
+#     generate 1000 draws from rnorm(mean=mu_vector, sd=sigma_vector) 
+
+weight_seq <- seq(from=25, to = 70, by = 1)
+height_sim <- sapply(weight_seq, function(weight){
+                      rnorm( n=1000, mean = post_m4_3[,"a"] + post_m4_3[,"b"]*(weight-xbar), sd=post_m4_3[,"sigma"])
+})
+height_mean <- apply(height_sim, 2, mean)
+height_PI <- apply(height_sim, 2, rethinking::PI, prob=0.89)
+plot( height ~ weight , d2 , col=col.alpha(rangi2,0.5) )
+points(weight_seq, height_mean,pch=2)
+shade(height_PI, weight_seq)
+shade(mu.CI, weight_seq, col=col.alpha(rangi2,0.5))
+e_alpha <- mean(post_m4_3[,"a"])
+e_beta <- mean(post_m4_3[,"b"])
+curve( e_alpha + e_beta*(x - xbar) , add=TRUE )
+
+
+
+```
+
+
+
+
+
+## 4.5 Curves from lines: Polynomials and Basis functions
+
+"But there's nothing special about straight lines" I mean, there kinda is -- constant slope. Which means that the relationship b/w the outcome and the predictor variable is constant across levels of the predictor variable. 
+
+### Polynomical regresssions
+
+Nothing fancy going on here, we just add higher powers of the predictor variable $x^2, x^3$ etc.
+Makes it hard to interpret coefficients though. Also prone to overfitting. 
+
+The basic recipe stays the same: 
+1. Define a likelihood for the outcome variable. Typically the likelihood is some statistical distribution (eg Normal Distro with a mean and a variance parameter). 
+2. Link the parameters of the liklihood function to the predictor variables using a linear functional form.
+3. Apply priors for the components of the parameters.
+4. Fit the posterior distribution using Quadiatic Approximation
+5. Re-sample from the posterior to obtain values of various parameters, and sub-parameters along with their relative probabilities.
+6. Use the re-sampled parameter values to predict and draw inferences. 
+
+#### Fitting a polynomial model to the !Kung data
+
+$$
+height_i \sim Normal(\mu_i, sigma) \\
+\mu_i = \alpha + \beta_1\hat{x_i} + \beta_2\hat{x_i}^2, \textrm{where} \space \hat{x_i} = x_i - \bar{x}\\
+\alpha \sim Normal(178,20)  \\
+\beta_1 \sim LogNormal(0,1) \\
+\beta_2 \sim Normal(0,10) \\
+\sigma \sim Uniform(0,50)
+$$
+
+```{r}
+library(rethinking)
+data(Howell1)
+d2 <- Howell1
+
+# define the average weight, x-bar
+xbar <- mean(d2$weight)
+
+# define de-meaned weight and it's square
+d2$weight_std = d2$weight - xbar
+d2$weight_std_2 = d2$weight_std^2
+
+# Fit the model
+m4_4 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b_1*weight_std + b_2*weight_std_2,
+    a ~ dnorm(178,20),
+    b_1 ~ dlnorm(0,1),
+    b_2 ~ dnorm(0,10),
+    sigma ~ dunif(0,50)
+  ),
+  data = d2
+)
+
+post_m4_4 <- MASS::mvrnorm( n=1e4 , mu=coef(m4_4) , Sigma=vcov(m4_4) )
+```
+
+
+
+
+### Spline regressions
+
+In statistics, a spline is a smooth function built out of smaller, component functions.
+
+Unlike polynomial regression, B-splines do not directly transform the predictor by squaring or cubing it. Instead they invent a series of entirely new, synthetic predictor variables. Each of these variables serves to gradually turn a specific parameter on and off within a specific range of the predictor variables. Each of these variables is called a basis function
+
+```{r}
+library(rethinking)
+data(cherry_blossoms)
+d <- cherry_blossoms
+```
+
+
+
+## Practice Questions
+
+### Easy
+#### 4E1. 
+Q: In the model definition below, which line is the likelihood?
+      yi ∼ Normal(μ, σ)
+      μ ∼ Normal(0, 10) 
+      σ ∼ Exponential(1)
+      
+Ans: Likelihoodn = P(data|parameters), y_i fits this description, and is hence the Likelihood.
+
+#### 4E2. 
+Q: In the model definition just above, how many parameters are in the posterior distribution?
+Ans: 2 parameters, mu and sigma, both of which are first degree parameters without any sub-parameters
+
+####4E3. 
+Q: Using the model definition above, write down the appropriate form of Bayes’ theorem that includes the proper likelihood and priors.
+
+Ans: Fill in the values in the following formula
+
+$$
+Pr(\mu,\sigma|h) = \frac{\Pi_iNormal(h_i,\mu,\sigma)*Normal(\mu|0,10)*Exp(\sigma|1)}{\int_\mu\int_\sigma\Pi_iNormal(h_i,\mu,\sigma)*Normal(\mu|0,10)*Exp(\sigma|1)d\mu d\sigma}
+$$
+
+#### 4E4. 
+Q: In the model definition below, which line is the linear model? 
+  yi ∼ Normal(μ, σ)
+  μi =α+βxi
+  α ∼ Normal(0, 10) 
+  β ∼ Normal(0, 1) 
+  σ ∼ Exponential(2)
+
+Ans: A linear model relates a parameter as a linear function of predictor variables. The definition of $\mu_i$ fits the bill. 
+
+#### 4E5. 
+Q: In the model definition just above, how many parameters are in the posterior distribution?
+Ans: 3 parameters, $\alpha, \beta, \sigma$
+
+
+
+### Medium
+#### 4M1. 
+For the model definition below, simulate observed y values from the prior (not the posterior). 
+  yi ∼ Normal(μ, σ)
+  μ ∼ Normal(0, 10) 
+  σ ∼ Exponential(1)
+
+```{r}
+length <- 1000 # 
+mu_vector <- rnorm(length, mean = 0, sd = 10)
+sigma_vector <- rexp(length, rate=1)
+y_sim <- expand.grid(mu=mu_vector,sigma=sigma_vector)
+y_sim$y <- rnorm(y_sim$mu,y_sim$sigma)
+plot(density(y_sim$y))
+```
+
+
+
+
+#### 4M2. 
+Translate the model just above into a quap formula.
+
+Ans: 
+`
+q4m2_model <- quap(
+  alist(
+    y ~ dnorm(mu, sigma),
+    mu <- dnorm(0, 10),
+    sigma ~ dexp(1)
+  ),
+  data = data
+)
+`
+
+4M3. 
+Translate the quap model formula below into a mathematical model definition.
+flist <- alist(
+    y ~ dnorm( mu , sigma ),
+    mu <- a + b*x,
+    a ~ dnorm( 0 , 10 ),
+    b ~ dunif( 0 , 1 ),
+    sigma ~ dexp( 1 )
+)
