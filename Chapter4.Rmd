@@ -675,3 +675,48 @@ Ans: The rate of increas in height with increas in weight seems to flatten out a
 Moving from 10 kg to 20 kg weight results in an increase in height of ~30 cms. While moving from 30 kg to 40 kg results in height increase of only around 5 cm. In other words, height is a concave function of weight, not a linear function. 
 
 Recommendation would be to model average height as a concave function of weight. 
+
+#### 4H3. 
+Suppose a colleague of yours, who works on allometry, glances at the practice problems just above. Your colleague exclaims, “That’s silly. Everyone knows that it’s only the logarithm of body weight that scales with height!” Let’s take your colleague’s advice and see what happens.
+
+(a) Model the relationship between height (cm) and the natural logarithm of weight (log-kg). Use the entire Howell1 data frame, all 544 rows, adults and non-adults. Fit this model, using quadratic approximation:
+  hi ∼ Normal(μi, σ) 
+  μi =α+βlog(wi)
+  α ∼ Normal(178, 20)
+  β ∼ Log − Normal(0, 1) 
+  σ ∼ Uniform(0, 50)
+where hi is the height of individual i and wi is the weight (in kg) of individual i. The function for computing a natural log in R is just log. 
+
+Can you interpret the resulting estimates?
+
+```{r}
+
+# Create a variable to hold the log of weight
+d2$log_weight <- log(d2$weight)
+
+# Generate the posterior with QUAP
+q4h_3 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b*(log_weight),
+    a ~ dnorm(110,20),
+    b ~ dlnorm(0,1),
+    sigma ~ dunif(0,50)
+  ),
+  data = d2
+)
+```
+
+```{r}
+round(coef(q4h_3),3)
+```
+
+
+(b) Begin with this plot:
+ plot( height ~ weight , data=Howell1 ,
+    col=col.alpha(rangi2,0.4) )
+    
+Then use samples from the quadratic approximate posterior of the model in (a) to superimpose on the plot: 
+  (1) the predicted mean height as a function of weight, 
+  (2) the 97% interval for the mean, and 
+  (3) the 97% interval for predicted heights.
