@@ -705,18 +705,50 @@ q4h_3 <- quap(
   ),
   data = d2
 )
+
+# Sample from the posterior
+post_q4h_3 <- MASS::mvrnorm( n=1e4 , mu=coef(q4h_3) , Sigma=vcov(q4h_3) )
 ```
 
 ```{r}
 round(coef(q4h_3),3)
 ```
 
+Interpretation: 
+We know that the coefficient on beta is $\frac{d}{dweight}(height)$
 
 (b) Begin with this plot:
- plot( height ~ weight , data=Howell1 ,
+
+ plot( height ~ weight , data=d2 ,
     col=col.alpha(rangi2,0.4) )
     
 Then use samples from the quadratic approximate posterior of the model in (a) to superimpose on the plot: 
   (1) the predicted mean height as a function of weight, 
   (2) the 97% interval for the mean, and 
   (3) the 97% interval for predicted heights.
+  
+```{r}
+summary(d2$log_weight)
+```
+  
+```{r}
+weight_seq <- seq(from=1.4, to = 3.9, length.out = 100)
+
+# Predicting mean height
+mean_height_sim <- sapply(weight_seq, function(weight)
+    post_q4h_3[,"a"]+post_q4h_3[,"b"]*weight)
+mean_height_CI <- apply(mean_height_sim, 2, rethinking::PI, prob=0.89)
+mean_height_CI <- apply(mean_height_sim, 2, rethinking::PI, prob=0.89)
+
+# Predicting actual heights
+height_sim <- sapply(weight_seq, function(weight) 
+  rnorm(n=1000, mean=post_q4h_3[,"a"]+post_q4h_3[,"b"]*weight, sd=post_q4h_3[,"sigma"]))
+height_CI <- apply(height_sim, 2, rethinking::PI, prob=0.89)
+```
+  
+```{r}
+ plot( height ~ weight , data=d2 ,
+    col=col.alpha(rangi2,0.4) )
+```
+  
+  
