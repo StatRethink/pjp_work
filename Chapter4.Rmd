@@ -85,7 +85,6 @@ plot(post$sigma, post$prob)
 ### Is the posterior Gaussian? 
  Well, the posterior for `mu` looks Gausssian, the posterior for `sigma` has a thickeer and longer right tail. 
 
-ss
 ### 4.3.4 Sampling the posterior -- good old sample proportional to posterior probability
 ```{r}
 sample.rows <- sample( 1:nrow(post) , size=1e4 , replace=TRUE ,
