@@ -424,10 +424,10 @@ d <- cherry_blossoms
 
 
 
-## Practice Questions
 
-### Easy
-#### 4E1. 
+
+## Easy Questionss
+### 4E1. 
 Q: In the model definition below, which line is the likelihood?
       yi ∼ Normal(μ, σ)
       μ ∼ Normal(0, 10) 
@@ -435,11 +435,11 @@ Q: In the model definition below, which line is the likelihood?
       
 Ans: Likelihoodn = P(data|parameters), y_i fits this description, and is hence the Likelihood.
 
-#### 4E2. 
+### 4E2. 
 Q: In the model definition just above, how many parameters are in the posterior distribution?
 Ans: 2 parameters, mu and sigma, both of which are first degree parameters without any sub-parameters
 
-####4E3. 
+### 4E3. 
 Q: Using the model definition above, write down the appropriate form of Bayes’ theorem that includes the proper likelihood and priors.
 
 Ans: Fill in the values in the following formula
@@ -448,7 +448,7 @@ $$
 Pr(\mu,\sigma|h) = \frac{\Pi_iNormal(h_i,\mu,\sigma)*Normal(\mu|0,10)*Exp(\sigma|1)}{\int_\mu\int_\sigma\Pi_iNormal(h_i,\mu,\sigma)*Normal(\mu|0,10)*Exp(\sigma|1)d\mu d\sigma}
 $$
 
-#### 4E4. 
+### 4E4. 
 Q: In the model definition below, which line is the linear model? 
   yi ∼ Normal(μ, σ)
   μi =α+βxi
@@ -458,13 +458,13 @@ Q: In the model definition below, which line is the linear model?
 
 Ans: A linear model relates a parameter as a linear function of predictor variables. The definition of $\mu_i$ fits the bill. 
 
-#### 4E5. 
+### 4E5. 
 Q: In the model definition just above, how many parameters are in the posterior distribution?
 Ans: 3 parameters, $\alpha, \beta, \sigma$
 
 
 
-### Medium
+## Medium
 #### 4M1. 
 For the model definition below, simulate observed y values from the prior (not the posterior). 
   yi ∼ Normal(μ, σ)
@@ -475,9 +475,8 @@ For the model definition below, simulate observed y values from the prior (not t
 length <- 1000 # 
 mu_vector <- rnorm(length, mean = 0, sd = 10)
 sigma_vector <- rexp(length, rate=1)
-y_sim <- expand.grid(mu=mu_vector,sigma=sigma_vector)
-y_sim$y <- rnorm(y_sim$mu,y_sim$sigma)
-plot(density(y_sim$y))
+y <- rnorm(n=1e4, mean = mu_vector, sd = sigma_vector)
+plot(density(y))
 ```
 
 
@@ -546,7 +545,7 @@ Ans: Since variance <= 64, sd <= sqrt(64) = 8. I'll revise my prior for sigma to
 
 
 
-### Hard
+## Hard
 
 #### 4H1
 
@@ -736,15 +735,6 @@ $$
 \textrm{Thus, taking the log of a predictor variable dampens the effect of higher values of that variable}
 $$
 
-(b) Begin with this plot:
-
- plot( height ~ weight , data=d2 ,
-    col=col.alpha(rangi2,0.4) )
-    
-Then use samples from the quadratic approximate posterior of the model in (a) to superimpose on the plot: 
-  (1) the predicted mean height as a function of weight, 
-  (2) the 97% interval for the mean, and 
-  (3) the 97% interval for predicted heights.
   
 ```{r}
 summary(d2$log_weight)
@@ -765,9 +755,131 @@ height_sim <- sapply(weight_seq, function(weight)
 height_CI <- apply(height_sim, 2, rethinking::PI, prob=0.89)
 ```
   
-```{r}
+(b) Begin with this plot:
+
  plot( height ~ weight , data=d2 ,
     col=col.alpha(rangi2,0.4) )
+    
+Then use samples from the quadratic approximate posterior of the model in (a) to superimpose on the plot: 
+  (1) the predicted mean height as a function of weight, 
+  (2) the 97% interval for the mean, and 
+  (3) the 97% interval for predicted heights.
+  
+```{r}
+plot( height ~ weight , data=d2 ,
+    col=col.alpha(rangi2,0.4) )
+
+lines(x=exp(weight_seq), y=mean_height)
+shade(mean_height_CI,exp(weight_seq))
+shade(height_CI,exp(weight_seq))
 ```
   
-  
+#### 4H4. 
+Plot the prior predictive distribution for the polynomial regression model in the chapter. You can modify the code that plots the linear regression prior predictive distribution.
+
+Can you modify the prior distributions of α, β1, and β2 so that the prior predictions stay within the biologically reasonable outcome space? That is to say: Do not try to fit the data by hand. But do try to keep the curves consistent with what you know about height and weight, before seeing these exact data.
+
+Since a, b1,b2,b3, and sigma are independent, we'll predit from prior using their means. Otherise, creating the cartesian product of all these parameters will blow up my computer. So, we'll simply take the average of these parameters and vary weights to test our predictive fits. 
+
+Or maybe, we could take quantiless, and use quantiles to create an approximation grid? 
+
+```{r}
+
+length <- 1000
+a <- rnorm( n=length, mean=100 , sd=20 )
+b1 <- rlnorm(n=length, mean=0 , sd=1 )
+b2 <- rnorm(n=length, mean=-0.75 , sd=1)
+b3 <- rnorm(n=length, mean=1 , sd=1 )
+sigma <- runif(n=length, min=0 , max=10 )
+
+weight_seq <- seq(from=1, to=100, by =1)
+xbar <- mean(weight_seq)
+weight_s <- (weight_seq - xbar)/sd(weight_seq)
+weight_s2 <- weight_s^2
+weight_s3 <- weight_s^3
+#mu <- a + b1*weight_s + b2*weight_s2 + b3*weight_s3
+
+height_sim <- sapply(weight_s, function(weight_s)
+    rnorm(n=100, mean=mean(a) + mean(b1)*weight_s + mean(b2)*weight_s^2 +  
+      mean(b3*weight_s^3, sd=mean(sigma))))
+
+mean_height_sim <- apply(height_sim, 2, mean)
+
+plot(weight_seq, mean_height_sim)
+# for(i in 1:100){
+#   plot(weight_seq, height_sim[i,])
+# }
+```
+
+```{r}
+library(rethinking)
+data(Howell1)
+d2 <- Howell1
+plot(height ~ weight, data=d2)
+```
+
+
+
+## Overthinking
+
+```{r}
+library(rethinking)
+data(Howell1)
+d2 <- Howell1
+
+# define the average weight, x-bar
+xbar <- mean(d2$weight)
+
+# define de-meaned weight and it's square
+d2$weight_std = d2$weight - xbar
+
+# Fit the model
+overthink_1 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b*weight_std ,
+    a ~ dnorm(178,20),
+    b ~ dlnorm(0,1),
+    sigma ~ dunif(0,50)
+  ),
+  data = d2
+)
+
+overthink_1 <- MASS::mvrnorm( n=1e4 , mu=coef(overthink_1) , Sigma=vcov(overthink_1) )
+```
+
+```{r}
+weight_seq <- seq(from=1, to = 100, by = 1)
+mean_height_sim <- sapply(weight_seq, function(weight)
+    overthink_1[,"a"] + overthink_1[,"b"]*(weight-xbar)
+  )
+mean_height_mean <- apply(mean_height_sim,2,mean)
+mean_height_CI <- apply(mean_height_sim,2,rethinking::PI, prob=0.89)
+mean_height_CI_width <- mean_height_CI[2,] - mean_height_CI[1,]
+
+
+predict_height_sim <- sapply(weight_seq, function(weight)
+    rnorm(n=1000, mean = overthink_1[,"a"] + overthink_1[,"b"]*(weight-xbar), sd= overthink_1[,"sigma"]))
+
+predict_height_CI <- apply(predict_height_sim, 2, rethinking::PI, prob=0.89)
+predict_height_CI_width <- predict_height_CI[2,] - predict_height_CI[1,]
+```
+
+In plots like the one below, which show the 89% PI for predicted heights, and mean heights, why is the uncertainty interval for predicted heights have constant width at all weight levels?
+
+```{r}
+plot(height ~ weight, data=d2)
+lines(weight_seq, mean_height_mean)
+shade(mean_height_CI, weight_seq)
+shade(predict_height_CI, weight_seq)
+```
+
+```{r}
+plot(weight_seq, predict_height_CI_width)
+```
+
+```{r}
+boxplot(predict_height_CI_width ~ cut(weight_seq,10))
+abline(h=mean(predict_height_CI_width), lty=3)
+```
+
