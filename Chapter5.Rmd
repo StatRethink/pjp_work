@@ -109,17 +109,96 @@ dag5.1 <- dagitty( "dag {
     M -> D
 }")
 coordinates(dag5.1) <- list( x=c(A=0,D=1,M=2) , y=c(A=0,D=1,M=0) )
+
+dag5.1_b <- dagitty( "dag {
+    A -> D
+    A -> M
+}")
+coordinates(dag5.1_b) <- list( x=c(A=0,D=1,M=1) , y=c(A=0,D=2,M=-2) )
+par(mfcol=c(1,2))
 rethinking::drawdag( dag5.1 )
+rethinking::drawdag( dag5.1_b)
 ```
 
-What this DAG says is:
-(1) A directly influences D 
-(2) M directly influences D 
-(3) A directly influences M
+What the DAG on the left says is:
+  (1) A directly influences D 
+  (2) M directly influences D 
+  (3) A directly influences M
+
+The DAG on the right says:
+  (1) A directly influences D 
+  (2) M does not directly influence D 
+  (3) A directly influences M
 
 
 ## Interpreting DAGs: Testable implications of DAGs
 
-$X \indep Y$
+Comparing the DAG on the left to the DAG on the right, we can observe that in the right DAG, M influences D only due to the shared influence of A, i.e D and M share a common influence via A. 
+If we condition for A, them M and D would be independent. A conclusion we represent as $D \indep M|A$
+
+DAGs are analytical models of reality, not statistical models. This means that there are multiple potential statistical models that can fit the same DAG and it's implications. Here, we will use a linear model to condition for the effect of $A$ on $M$ and $D$. 
+
+We test the two DAGs above using a multi-variate linear model
+
+```{r}
+multivar_model <- quap(
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + bA*A + bM*M,
+    a ~ dnorm(0, 0.2),
+    bA ~ dnorm(0, 0.5),
+    bM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ),
+  data=d
+)
+
+# multivar_model_posterior <- MASS::mvrnorm( n=1e3 , mu=coef(multivar_model) , Sigma=vcov(multivar_model))
+# waffle_seq <- seq(from=min(d$W)-1, to = max(d$W) + 1, length.out = 30)
+# input_matrix <- rbind(rep(1,length(waffle_seq)), waffle_seq)
+# mean_divorce_sim_m5_1 <- waffle_divorce_posterior[,c("a","bW")] %*% input_matrix
+# mean_divorce_PI_m5_1 <- apply(mean_divorce_sim_m5_1, 2, rethinking::PI, prob=0.89)
+```
+Note above that we do not simulate the posterior as usual. Why is this? 
+
+This is because, multi-variate distributions are really difficult to simulate. Typical simulation involves generating a matrix of coeffcient values, and then multiplying that matrix by a predictor-value matrix to output the posteriod mean value for the outcome variable, ie
+
+$$
+MeanOutcomes = 
+
+\begin{bmatrix}
+\mathtt{Coeffienct Samples}
+\end{bmatrix}
+
+\begin{bmatrix}
+\mathtt{PredictorValues}
+\end{bmatrix}
+$$
+
+
+The predictor-value matrix is easy to construct when there is only one variable. It's simply 
+
+$$
+\begin{bmatrix}
+\mathbf{1}, \mathtt{PredictorSequence}
+\end{bmatrix}
+$$
+
+where $\mathbf{1}$ is a vector with all 1's, and Predictor Sequence is a sequence of values drawn from the values of the predictor variable, typically via some code like `seq(from=min(Predictor), to=max(Predictor), by = 1)`.
+
+However, when the no of predictors increase, the predictor value matrix becomes significantly larger. If we were to pick $n$ values for each predictor, then the predictor matrix would have $n*n$ rows. If we sample 1000 rows for the posterior coefficients matrix, and have k predictor variables, then our mean outcomes matrix will have 1000*$n^k$ rows. For n = 30 and k = 4, we are left with an 800 mn row matrix. 
+
+## Understanding mulivariate predictions
+
+As described above, generating the matrix of posterior predictions becomes harded as the number of predictors increases. The same applies to analysis which require summarising this matrix. 
+
+Let's say we wish to plot the 
+
+### Partialling out predictor variables
+
+Consider a regression equation of the form $ y = \alpha + \Sigma_i \beta_i X_i $ where $\beta_i$ denote the coefficients of the $i$ predictors. We'd like to understand the independent effect of one predictor, say $X_k$. How can we do this?
+
+One way to do this is to partial out the variation in $X_k$ that can be explained by the other predictors. We do this by estimating the following regression: $Mean(X_k) = \alpha' + \Sigma_j\theta_jX_j$
+Once we have this regression, the unexplained part of $X_k$ is $X_k - Mean(X_k)$, also known as the _residual_.
 
 
