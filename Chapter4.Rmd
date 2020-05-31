@@ -1,7 +1,9 @@
 ---
 title: "Chapter4"
-output: html_document
-
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
 ---
 
 ```{r include=FALSE}
@@ -9,17 +11,15 @@ output: html_document
 knitr::opts_chunk$set( message=FALSE, warning=FALSE)
 ```
 
-# Notes from the Chapter
-
-## 4.1: Why is it ok to use Gaussian distribution as a model?
+# 4.1: Why is it ok to use Gaussian distribution as a model?
 We discusss reasons why modelling some variable or phonomenon as Gaussian is ok. 
 - Ontological: As a category, Gaussian distributions are faily common in the wild. 
 - Epistemological: If all we know is the average value of a variable, and a sense of the dispersion of the variable, then the Gaussian distribution is the most conservative distribution incorporating that information. 
 
-## 4.2 
+# 4.2: The ~ notation
 - We discusss the `~` notation used to map variables to statistical distributions/ models. 
 
-## 4.3 A Gaussian model for height
+# 4.3 A Gaussian model for height
 
 - Our goal in this chapter is to fit a $Normal(\mu, \sigma)$ distribution to a given dataset, subject to a given prior, and to obtain the most likely values for $\mu$ and $\sigma$. 
 - From the typical Bayesian updating we have 
@@ -131,7 +131,7 @@ lines(density(sample.sigma),lwd=2,lty=2, col="blue")
 ```
 
 
-## 4.4 Linear Prediction
+# 4.4 Linear Prediction
 ```{r}
  plot( d2$height ~ d2$weight )
 ```
@@ -350,7 +350,7 @@ curve( e_alpha + e_beta*(x - xbar) , add=TRUE )
 
 
 
-## 4.5 Curves from lines: Polynomials and Basis functions
+# 4.5 Curves from lines: Polynomials and Basis functions
 
 "But there's nothing special about straight lines" I mean, there kinda is -- constant slope. Which means that the relationship b/w the outcome and the predictor variable is constant across levels of the predictor variable. 
 
@@ -425,7 +425,7 @@ d <- cherry_blossoms
 
 
 
-## Easy Questionss
+# Easy Questionss
 ### 4E1. 
 Q: In the model definition below, which line is the likelihood?
       yi ∼ Normal(μ, σ)
@@ -463,7 +463,7 @@ Ans: 3 parameters, $\alpha, \beta, \sigma$
 
 
 
-## Medium
+# Medium
 #### 4M1. 
 For the model definition below, simulate observed y values from the prior (not the posterior). 
   yi ∼ Normal(μ, σ)
@@ -544,7 +544,7 @@ Ans: Since variance <= 64, sd <= sqrt(64) = 8. I'll revise my prior for sigma to
 
 
 
-## Hard
+# Hard
 
 #### 4H1
 
@@ -819,7 +819,7 @@ plot(height ~ weight, data=d2)
 
 
 
-## Overthinking
+# Overthinking
 
 ```{r}
 library(rethinking)
