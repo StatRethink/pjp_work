@@ -6,3 +6,120 @@ output:
     toc_depth: 3
 ---
 
+```{r include=FALSE}
+# Setting Knit options for the document
+knitr::opts_chunk$set( message=FALSE, warning=FALSE)
+```
+\newcommand{\indep}{\perp \!\!\! \perp}
+
+
+# 5.1: Supurious Correlations
+## We observe a puzzle: Marriage rates and divorce rates are positively correlated
+```{r}
+library(rethinking)
+data(WaffleDivorce)
+d <- WaffleDivorce
+
+d$W <- d$WaffleHouses
+d$A <- scale(d$MedianAgeMarriage)
+d$D <- scale(d$Divorce)
+d$M <- scale(d$Marriage)
+```
+
+Let's fit a bayesian model to the three variables -- Waffle Houses, Age at marriage and Marriage Rate.
+
+```{r}
+waffle_divorce <- quap(
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + bW*W,
+    bW ~ dnorm(0, 0.2),
+    a ~ dnorm(0, 0.2),
+    sigma ~ dexp(1)
+  ),
+  data = d
+)
+age_divorce <- quap(
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + bA*A,
+    bA ~ dnorm(0, 0.2),
+    a ~ dnorm(0, 0.2),
+    sigma ~ dexp(1)
+  ),
+  data = d
+)
+
+marriage_divorce <- quap(
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + bM*M,
+    bM ~ dnorm(0, 0.2),
+    a ~ dnorm(0, 0.2),
+    sigma ~ dexp(1)
+  ),
+  data = d
+)
+```
+
+```{r}
+waffle_divorce_posterior <- MASS::mvrnorm( n=1e3 , mu=coef(waffle_divorce) , Sigma=vcov(waffle_divorce))
+waffle_seq <- seq(from=min(d$W)-1, to = max(d$W) + 1, length.out = 30)
+input_matrix <- rbind(rep(1,length(waffle_seq)), waffle_seq)
+mean_divorce_sim_m5_1 <- waffle_divorce_posterior[,c("a","bW")] %*% input_matrix
+mean_divorce_PI_m5_1 <- apply(mean_divorce_sim_m5_1, 2, rethinking::PI, prob=0.89)
+
+age_divorce_posterior <- MASS::mvrnorm( n=1e3 , mu=coef(age_divorce) , Sigma=vcov(age_divorce))
+age_seq <- seq(from=min(d$A)-1, to = max(d$A) + 1, length.out = 30)
+input_matrix <- rbind(rep(1,length(age_seq)), age_seq)
+mean_divorce_sim_m5_2 <- age_divorce_posterior[,c("a","bA")] %*% input_matrix
+mean_divorce_PI_m5_2 <- apply(mean_divorce_sim_m5_2, 2, rethinking::PI, prob=0.89)
+
+marriage_divorce_posterior <- MASS::mvrnorm( n=1e3 , mu=coef(marriage_divorce) , Sigma=vcov(marriage_divorce))
+marriage_seq <- seq(from=min(d$M)-1, to = max(d$M) + 1, length.out = 30)
+input_matrix <- rbind(rep(1,length(marriage_seq)), marriage_seq)
+mean_divorce_sim_m5_3 <- marriage_divorce_posterior[,c("a","bM")] %*% input_matrix
+mean_divorce_PI_m5_3 <- apply(mean_divorce_sim_m5_3, 2, rethinking::PI, prob=0.89)
+
+# Plot the graphs
+par(mfcol=c(1,3))
+
+plot(d$WaffleHouses, d$D, main="Waffle Houses and Divorce Rate")
+abline(a=mean(waffle_divorce_posterior[,"a"]), b=mean(waffle_divorce_posterior[,"bW"]), lty=2)
+shade(mean_divorce_PI_m5_1, waffle_seq)
+
+plot(d$A, d$D, main="Age at marriage and Divorce Rate")
+abline(a=mean(age_divorce_posterior[,"a"]), b=mean(age_divorce_posterior[,"bA"]), lty=2)
+shade(mean_divorce_PI_m5_2, age_seq)
+
+plot(d$M, d$D, main="Marriage Rate and Divorce Rate")
+abline(a=mean(marriage_divorce_posterior[,"a"]), b=mean(marriage_divorce_posterior[,"bM"]), lty=2)
+shade(mean_divorce_PI_m5_3, marriage_seq)
+```
+
+
+## Introduce some tools to solve the puzzle: DAGs
+A DAG is a way of describing qualitative causal relationships among variables. It isn’t as detailed as a full model description, but it contains information that a purely statistical model does not. Unlike a statistical model, a DAG, if it is correct, will tell you the consequences of intervening to change a variable.
+
+```{r}
+library(dagitty)
+dag5.1 <- dagitty( "dag {
+    A -> D
+    A -> M
+    M -> D
+}")
+coordinates(dag5.1) <- list( x=c(A=0,D=1,M=2) , y=c(A=0,D=1,M=0) )
+rethinking::drawdag( dag5.1 )
+```
+
+What this DAG says is:
+(1) A directly influences D 
+(2) M directly influences D 
+(3) A directly influences M
+
+
+## Interpreting DAGs: Testable implications of DAGs
+
+$X \indep Y$
+
+
