@@ -153,6 +153,8 @@ multivar_model <- quap(
   data=d
 )
 
+rethinking::precis(multivar_model)
+
 # multivar_model_posterior <- MASS::mvrnorm( n=1e3 , mu=coef(multivar_model) , Sigma=vcov(multivar_model))
 # waffle_seq <- seq(from=min(d$W)-1, to = max(d$W) + 1, length.out = 30)
 # input_matrix <- rbind(rep(1,length(waffle_seq)), waffle_seq)
@@ -163,8 +165,7 @@ Note above that we do not simulate the posterior as usual. Why is this?
 
 This is because, multi-variate distributions are really difficult to simulate. Typical simulation involves generating a matrix of coeffcient values, and then multiplying that matrix by a predictor-value matrix to output the posteriod mean value for the outcome variable, ie
 
-$$
-MeanOutcomes = 
+$$ MeanOutcomes = 
 
 \begin{bmatrix}
 \mathtt{Coeffienct Samples}
@@ -172,17 +173,13 @@ MeanOutcomes =
 
 \begin{bmatrix}
 \mathtt{PredictorValues}
-\end{bmatrix}
-$$
-
+\end{bmatrix} $$
 
 The predictor-value matrix is easy to construct when there is only one variable. It's simply 
 
-$$
-\begin{bmatrix}
+$$\begin{bmatrix}
 \mathbf{1}, \mathtt{PredictorSequence}
-\end{bmatrix}
-$$
+\end{bmatrix}$$
 
 where $\mathbf{1}$ is a vector with all 1's, and Predictor Sequence is a sequence of values drawn from the values of the predictor variable, typically via some code like `seq(from=min(Predictor), to=max(Predictor), by = 1)`.
 
@@ -192,7 +189,9 @@ However, when the no of predictors increase, the predictor value matrix becomes 
 
 As described above, generating the matrix of posterior predictions becomes harded as the number of predictors increases. The same applies to analysis which require summarising this matrix. 
 
-Let's say we wish to plot the 
+Let's say we wish to plot the outcome variable against a predictor variable of interest $X_t$. In the single variate case, we would pick a sequence of $X_t$ values and generate posterior predictions for these values. However, now things have changed. To find the average $Y$ value at a particular $X_t$ value, we would need to account for the other $k-t$ predictors. We're back to the same problem as before, at each of the $n$ values of $X_t$ where we would like to evaluate the outcome, we need to manipulate a matrix with $1000*n^{k-1}$ rows. 
+
+This does not mean that generating these outcomes is impossible. We can of course generating them using the vector of coefficients, and the Covaraince matrix. It's just that at this point in the text, we haven't developed the mathematical machinery to do this. As a result we need to look else where to generate predictive plots of outcomes. 
 
 ### Partialling out predictor variables
 
@@ -200,5 +199,93 @@ Consider a regression equation of the form $ y = \alpha + \Sigma_i \beta_i X_i $
 
 One way to do this is to partial out the variation in $X_k$ that can be explained by the other predictors. We do this by estimating the following regression: $Mean(X_k) = \alpha' + \Sigma_j\theta_jX_j$
 Once we have this regression, the unexplained part of $X_k$ is $X_k - Mean(X_k)$, also known as the _residual_.
+
+```{r}
+m5.4 <- quap(
+    alist(
+        M ~ dnorm( mu , sigma ) ,
+        mu <- a + bAM * A ,
+        a ~ dnorm( 0 , 0.2 ) ,
+        bAM ~ dnorm( 0 , 0.5 ) ,
+        sigma ~ dexp( 1 )
+) , data = d )
+
+m5.4_posterior <- MASS::mvrnorm( n=1e3 , mu=coef(m5.4) , Sigma=vcov(m5.4))
+# Note that instead of generating a sequence of predictor values, we're using the original data itself
+
+m5.4_input_matrix <- t(cbind(rep(1,length(d$A)),d$A))
+m5.4_Marriage_Rate_Predict <- m5.4_posterior[,c("a", "bAM")] %*% m5.4_input_matrix
+m5.4_Marriage_Rate_mean <- apply(m5.4_Marriage_Rate_Predict, 2, mean)
+m5.4_mean_Marriage_CI <- apply(m5.4_Marriage_Rate_Predict, 2, rethinking::PI, prob=0.89)
+d$M_resid <- d$M - m5.4_Marriage_Rate_mean
+plot(d$D ~ d$M_resid)
+```
+
+So, we've residualized the Marriage rate. We can now regress the Divorce rate on the residualized Marriage rate. 
+
+
+```{r}
+m5.4b <- quap(
+    alist(
+        D ~ dnorm( mu , sigma ) ,
+        mu <- a + bM_resid * M_resid ,
+        a ~ dnorm( 0 , 0.2 ) ,
+        bM_resid ~ dnorm( 0 , 0.25 ) ,
+        sigma ~ dexp( 1 )
+) , data = d )
+
+m5.4b_posterior <- MASS::mvrnorm( n=1e3 , mu=coef(m5.4b) , Sigma=vcov(m5.4b))
+
+m5.4b_input_matrix <- t(cbind(rep(1,length(d$M_resid)), d$M_resid))
+m5.4b_Divorce_Rate_Predict <- m5.4b_posterior[,c("a", "bM_resid")] %*% m5.4b_input_matrix
+m5.4b_Divorce_Rate_mean <- apply(m5.4b_Divorce_Rate_Predict, 2, mean)
+m5.4b_mean_Divorce_CI <- apply(m5.4b_Divorce_Rate_Predict, 2, rethinking::PI, prob=0.89)
+plot(d$D ~ d$M_resid)
+abline(a=mean(m5.4b_posterior[,"a"]),
+       b=mean(m5.4b_posterior[,"bM_resid"]))
+abline(v=0, lty=2)
+shade(m5.4b_mean_Divorce_CI,d$M_resid)
+```
+
+
+
+### Goodness of Fit plots
+
+The idea here is to plot predicted v/s actually observed values for outcomes to judge the fit. 
+
+We start by fitting the model
+```{r}
+multivar_model <- quap(
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + bA*A + bM*M,
+    a ~ dnorm(0, 0.2),
+    bA ~ dnorm(0, 0.5),
+    bM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ),
+  data=d
+)
+
+# Extract a bunch of posterior parameter values
+multivar_model_posterior <- MASS::mvrnorm( n=1e3 , mu=coef(multivar_model) , Sigma=vcov(multivar_model))
+```
+
+Due to the predictor value matrix becoming large, we'll stick to using the original data itself. 
+
+```{r}
+# Predictions = Posterior Parameters x Predictor Value matrix
+predictor_val_matrix <- rbind(rep(1,length(d$A)), as.vector(d$A), as.vector(d$M))
+mu_divorce_predictions <- multivar_model_posterior[,c("a", "bA", "bM")] %*% predictor_val_matrix
+mu_divorce_mean <- apply(mu_divorce_predictions, 2, mean)
+mu_divorce_PI <- apply(mu_divorce_predictions, 2, rethinking::PI, prob=0.89)
+```
+
+```{r}
+plot( d$D, mu_divorce_mean, xlab="Observed Divorce", ylab="Predicted Divorce Rates")
+abline( a=0 , b=1 , lty=2 )
+for ( i in 1:nrow(d) ) lines( rep(d$D[i],2) , mu_divorce_PI[,i] , col=rangi2 ) # Drawss the 89% PI bars
+```
+
 
 
