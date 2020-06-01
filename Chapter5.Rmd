@@ -195,7 +195,7 @@ This does not mean that generating these outcomes is impossible. We can of cours
 
 ### Partialling out predictor variables
 
-Consider a regression equation of the form $ y = \alpha + \Sigma_i \beta_i X_i $ where $\beta_i$ denote the coefficients of the $i$ predictors. We'd like to understand the independent effect of one predictor, say $X_k$. How can we do this?
+Consider a regression equation of the form $y = \alpha + \Sigma_i \beta_i X_i$ where $\beta_i$ denote the coefficients of the $i$ predictors. We'd like to understand the independent effect of one predictor, say $X_k$. How can we do this?
 
 One way to do this is to partial out the variation in $X_k$ that can be explained by the other predictors. We do this by estimating the following regression: $Mean(X_k) = \alpha' + \Sigma_j\theta_jX_j$
 Once we have this regression, the unexplained part of $X_k$ is $X_k - Mean(X_k)$, also known as the _residual_.
