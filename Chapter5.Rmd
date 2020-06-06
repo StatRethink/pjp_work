@@ -191,6 +191,8 @@ As described above, generating the matrix of posterior predictions becomes harde
 
 Let's say we wish to plot the outcome variable against a predictor variable of interest $X_t$. In the single variate case, we would pick a sequence of $X_t$ values and generate posterior predictions for these values. However, now things have changed. To find the average $Y$ value at a particular $X_t$ value, we would need to account for the other $k-t$ predictors. We're back to the same problem as before, at each of the $n$ values of $X_t$ where we would like to evaluate the outcome, we need to manipulate a matrix with $1000*n^{k-1}$ rows. 
 
+On top of this, we'd also need to consider the covariance structure of the predictor variables. 
+
 This does not mean that generating these outcomes is impossible. We can of course generating them using the vector of coefficients, and the Covaraince matrix. It's just that at this point in the text, we haven't developed the mathematical machinery to do this. As a result we need to look else where to generate predictive plots of outcomes. 
 
 ### Partialling out predictor variables
@@ -211,9 +213,9 @@ m5.4 <- quap(
 ) , data = d )
 
 m5.4_posterior <- MASS::mvrnorm( n=1e3 , mu=coef(m5.4) , Sigma=vcov(m5.4))
-# Note that instead of generating a sequence of predictor values, we're using the original data itself
 
-m5.4_input_matrix <- t(cbind(rep(1,length(d$A)),d$A))
+# Note that instead of generating a sequence of predictor values, we're using the original data itself
+m5.4_input_matrix <- rbind(rep(1,length(d$A)),as.vector(d$A))
 m5.4_Marriage_Rate_Predict <- m5.4_posterior[,c("a", "bAM")] %*% m5.4_input_matrix
 m5.4_Marriage_Rate_mean <- apply(m5.4_Marriage_Rate_Predict, 2, mean)
 m5.4_mean_Marriage_CI <- apply(m5.4_Marriage_Rate_Predict, 2, rethinking::PI, prob=0.89)
@@ -236,7 +238,7 @@ m5.4b <- quap(
 
 m5.4b_posterior <- MASS::mvrnorm( n=1e3 , mu=coef(m5.4b) , Sigma=vcov(m5.4b))
 
-m5.4b_input_matrix <- t(cbind(rep(1,length(d$M_resid)), d$M_resid))
+m5.4b_input_matrix <- rbind(rep(1,length(d$M_resid)), as.vector(d$M_resid))
 m5.4b_Divorce_Rate_Predict <- m5.4b_posterior[,c("a", "bM_resid")] %*% m5.4b_input_matrix
 m5.4b_Divorce_Rate_mean <- apply(m5.4b_Divorce_Rate_Predict, 2, mean)
 m5.4b_mean_Divorce_CI <- apply(m5.4b_Divorce_Rate_Predict, 2, rethinking::PI, prob=0.89)
@@ -247,7 +249,9 @@ abline(v=0, lty=2)
 shade(m5.4b_mean_Divorce_CI,d$M_resid)
 ```
 
+Well that's unexpected. Not sure what's going on...
 
+Anyway, later, McLerath mentions that we can't do this partialling trick when predictor variables are not related additively. 
 
 ### Goodness of Fit plots
 
@@ -289,3 +293,252 @@ for ( i in 1:nrow(d) ) lines( rep(d$D[i],2) , mu_divorce_PI[,i] , col=rangi2 ) #
 
 
 
+
+### Counterfactual Plots
+
+So the idea here seems to be the following:
+  1. Pick a predictor, and a sequence of values of the predictor.
+  2. Simulate other predictor variable values at each point in this sequence. How do we do this? We basically estimate all other predictors as a function of our predictor of interest and then evaluate the estimated function at the above sequence of values. 
+  
+```{r}
+library(rethinking)
+data(WaffleDivorce)
+d <- list()
+d$A <- standardize( WaffleDivorce$MedianAgeMarriage )
+d$D <- standardize( WaffleDivorce$Divorce )
+d$M <- standardize( WaffleDivorce$Marriage )
+
+m5.3_A <- quap(
+  alist(
+  ## A -> D <- M
+    D ~ dnorm(mu, sigma),
+    mu <- a + bA*A + bM*M,
+    a ~ dnorm(0, 0.2),
+    bA ~ dnorm(0, 0.2),
+    bM ~ dnorm(0, 0.2),
+    sigma ~ dexp(1),
+    
+  ## A -> M
+    M ~ dnorm(mu_M, sigma_M),
+    mu_M <- aM + bAM*A,
+    aM ~ dnorm(0, 0.2),
+    bAM ~ dnorm(0, 0.2),
+    sigma_M ~ dexp(1)
+  ), data = d)
+
+A_seq <- seq( from=-2 , to=2 , length.out=30 )
+m5.3A_posterior <- MASS::mvrnorm( n=1e3 , mu=coef(m5.3_A) , Sigma=vcov(m5.3_A))
+
+# Simulate M using the estimated function of A
+M_sigma <- m5.3A_posterior[,c("sigma_M")]
+M_mu <- m5.3A_posterior[,c("aM", "bAM")] %*% rbind(rep(1,length(A_seq)), as.vector(A_seq))
+M_sim <- apply(M_mu, 2, function(mu_vector)
+                          (rnorm(1e3,mean=mu_vector, sd=M_sigma))
+               )
+
+# The matrix M_sim now has 1e3 rows. Each colum contains the simulate Marriage Rate at a particular value of A_seq
+# We can use these simulated values of M_sim to simulate D now
+
+D_sigma <- m5.3A_posterior[,c("sigma")]
+D_sim <-sapply(
+              1:length(A_seq), 
+              function(i)
+                rnorm(1000, 
+                m5.3A_posterior[,c("a", "bA", "bM")] %*% 
+                rbind(rep(1,1000), rep(A_seq[i], 1000), as.vector(M_sim[,i])),
+              D_sigma)) 
+
+
+D_sim_mean <- apply(D_sim, 2, mean)
+M_sim_mean <- apply(M_sim, 2, mean)
+
+D_sim_PI <- apply(D_sim, 2, rethinking::PI, prob=0.89)
+M_sim_PI <- apply(M_sim, 2, rethinking::PI, prob=0.89)
+
+D_simM <-sapply(
+              1:length(A_seq), 
+              function(i)
+                rnorm(1000, 
+                m5.3A_posterior[,c("a", "bA", "bM")] %*% 
+                rbind(rep(1,1000), rep(0, 1000), as.vector(M_sim[,i])),
+              D_sigma)) 
+
+
+D_sim_meanM <- apply(D_simM, 2, mean)
+D_sim_PIM <- apply(D_simM, 2, rethinking::PI, prob=0.89)
+
+par(mfcol=c(1,3))
+plot(D_sim_mean ~ A_seq, ylim=c(-2,2.5), xlab="Manipulated A", ylab="Counterfactual Divorce")
+shade(D_sim_PI, A_seq)
+plot(M_sim_mean ~ A_seq, ylim=c(-2,2.5), xlab="Manipulated A", ylab="Counterfactual Marriage Rate")
+shade(M_sim_PI, A_seq)
+plot(D_sim_meanM ~ A_seq, ylim=c(-2,2.5), xlab="Manipulated M", ylab="Counterfactual Divorce")
+shade(D_sim_PIM, A_seq)
+
+```
+  
+  
+  
+# 5.2: Masked Relationship
+
+```{r}
+library(rethinking)
+data(milk)
+d <- na.omit(milk)
+
+# Rescale Variables
+d$K <- scale( d$kcal.per.g )
+d$N <- scale( d$neocortex.perc )
+d$M <- scale( log(d$mass) )
+```
+
+```{r}
+xseq <- c(-2,2)
+N_seq <- seq(from=-2, to=2, length.out = 1e3)
+
+# First set of priors
+prior_matrix_1 <- cbind(a=rnorm(1e3, 0, 1), bN=rnorm(1e3, 0, 1), sigma=rexp(1e3, 1))
+prior_mu_1 <- prior_matrix_1[,c("a", "bN")] %*% rbind(rep(1, 1e3), as.vector(N_seq))
+
+# Revisedd prioirs
+prior_matrix_2 <- cbind(a=rnorm(1e3, 0, 0.2), bN=rnorm(1e3, 0, 0.5), sigma=rexp(1e3, 1))
+prior_mu_2 <- prior_matrix_2[,c("a", "bN")] %*% rbind(rep(1, 1e3), as.vector(N_seq))
+
+# Plot the prior plots
+par(mfcol=c(1,2))
+plot(NULL, xlim=xseq, ylim=xseq, xlab="neocortex percent (std)",
+     ylab="kilocal per gram (std)",
+     main="a ~ dnorm(0,1) \n bN ~ dnorm(0,1) ")
+for ( i in 1:100 ) lines( N_seq , prior_mu_1[i,] , col=col.alpha("black",0.3))
+
+plot(NULL, xlim=xseq, ylim=xseq, xlab="neocortex percent (std)",
+        ylab="kilocal per gram (std)",
+     main="a ~ dnorm(0, 0.2) \n bN ~ dnorm(0, 0.5)")
+for ( i in 1:100 ) lines( N_seq , prior_mu_2[i,] , col=col.alpha("black",0.3))
+```
+
+The actual relationship b/w milk energy and neocortex percentage looks something like this:
+```{r}
+plot(d$K ~ d$N, xlab="neocortex percent (std)",
+     ylab="kilocal per gram (std)",
+     main="Raw data")
+```
+
+```{r}
+# We'll use the second set of prioirs to estimate posterioirs
+
+m5.5 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N,
+    a ~ dnorm(0, 0.2),
+    bN ~ dnorm(0, 0.2),
+    sigma ~ dexp(1)
+  ), data=d
+)
+
+m5.5_post_matrix <- MASS::mvrnorm( n=1e3 , mu=coef(m5.5) , Sigma=vcov(m5.5))
+```
+
+```{r}
+xseq <- seq( from=min(d$N)-0.15 , to=max(d$N)+0.15 , length.out=30 )
+mu <- m5.5_post_matrix[,c("a", "bN")] %*% rbind(rep(1,length(xseq)), as.vector(xseq))
+mu_mean <- apply(mu,2,mean)
+mu_PI <- apply(mu,2,PI)
+plot( K ~ N , data=d, main="Posterior of Milk energy against neocortex %" )
+lines( xseq , mu_mean , lwd=2 )
+shade( mu_PI , xseq )
+```
+
+Now let's plot the posterior of Milk energy against log(body mass)
+
+```{r}
+d$logM <- log(d$mass)
+d$LM <- scale(d$logM)
+```
+
+```{r}
+m5.6 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bLM*LM,
+    a ~ dnorm(0, 0.2),
+    bLM ~ dnorm(0, 0.2),
+    sigma ~ dexp(1)
+  ), data=d
+)
+
+m5.6_post_matrix <- MASS::mvrnorm( n=1e3 , mu=coef(m5.6) , Sigma=vcov(m5.6))
+```
+
+Plotting the posterior now
+```{r}
+LM_Seq <- seq( from=min(d$LM)-0.15 , to=max(d$LM)+0.15 , length.out=30 )
+m5.6_mu_post <- m5.6_post_matrix[,c("a", "bLM")] %*% rbind(rep(1,length(LM_Seq)), as.vector(LM_Seq))
+m5.6_mu_post_mean <- apply(m5.6_mu_post,2,mean)
+m5.6_mu_post_PI <- apply(m5.6_mu_post,2,PI)
+plot( K ~ LM , data=d, main="Posterior of Milk energy against log of body mass" )
+lines(LM_Seq , m5.6_mu_post_mean , lwd=2 )
+shade( m5.6_mu_post_PI , LM_Seq )
+```
+
+Adding both neocortex % and body mass as predictors
+
+```{r}
+m5.7 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N + bLM*LM,
+    a ~ dnorm(0, 0.2),
+    bN ~ dnorm(0, 0.5),
+    bLM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+m5.7_post_matrix <- MASS::mvrnorm( n=1e3 , mu=coef(m5.7) , Sigma=vcov(m5.7))
+```
+
+```{r}
+plot( coeftab( m5.5 , m5.6 , m5.7 ) , pars=c("bLM","bN") )
+```
+
+Plotting some counterfactual plots
+
+```{r}
+LMseq <- seq( from=min(d$LM)-0.15 , to=max(d$LM)+0.15 , length.out=30 )
+Nseq <- seq( from=min(d$N)-0.15 , to=max(d$N)+0.15 , length.out=30 )
+Zeroseq <- rep(0, 30)
+Oneseq <- rep(1, 30)
+
+# Counterfactual for Mass, holding Neocortex constant at 0
+mu_counterM <- m5.7_post_matrix[,c("a", "bN", "bLM")] %*% rbind(Oneseq, Zeroseq, LMseq)
+mu_mean_counterM <- apply(mu_counterM, 2, mean)
+mu_PI_counterM <- apply(mu_counterM, 2, rethinking::PI)
+
+# Counterfactual for Mass, holding Neocortex constant at 0
+mu_counterN <- m5.7_post_matrix[,c("a", "bN", "bLM")] %*% rbind(Oneseq, Nseq, Zeroseq)
+mu_mean_counterN <- apply(mu_counterN, 2, mean)
+mu_PI_counterN <- apply(mu_counterN, 2, rethinking::PI)
+
+# Plot the two counterfactual plots
+par(mfcol=c(1,2))
+
+plot(NULL, xlim=range(d$N), ylim=range(d$K), 
+     main="Counterfactual plot at Body Mass=0",
+     xlab="Neocortex % (std)",
+     ylab="Kcal im Milk (std)")
+lines(Nseq, mu_mean_counterN, lwd=2)
+shade(mu_PI_counterN, Nseq)
+
+plot(NULL, xlim=range(d$LM), ylim=range(d$K), 
+     main="Counterfactual plot at N=0",
+     xlab="Log Body Masss (std)",
+     ylab="Kcal im Milk (std)")
+lines(LMseq, mu_mean_counterM, lwd=2)
+shade(mu_PI_counterM, LMseq)
+```
+
+
+
+# 5.3: Categorical Variables
