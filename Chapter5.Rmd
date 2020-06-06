@@ -542,3 +542,67 @@ shade(mu_PI_counterM, LMseq)
 
 
 # 5.3: Categorical Variables
+Basically, this section deals with the syntax/ idiom to define categorical variables. No discussion of the math/ stats happening under the hood. 
+
+```{r}
+library(forcats)
+library(dplyr)
+data(milk)
+#d <- na.omit(milk)
+d$K <- scale(d$kcal.per.g)
+d$M <- scale(log(d$mass))
+d$clade_id <- as.integer( d$clade )
+# forcats::fct_count(d$clade)
+# d %>% group_by(clade) %>% summarize(., mean=mean(K), sd=sd(K), n())
+par(mfcol=c(1,2))
+boxplot(K ~ clade, data = d, 
+        main="Milk energe by clade",
+        names=c("Ape", "Old W", "New W", "Strep."))
+abline(h=0, lty=2)
+
+boxplot(M ~ clade, data = d,
+        main="Body mass by clade",
+        names=c("Ape", "Old W", "New W", "Strep."))
+abline(h=0, lty=2)
+```
+
+```{r}
+m5.9_A <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a[clade_id] + bM*M,
+    a[clade_id] ~ dnorm(0, 0.9),
+    bM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+m5.9_B <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a[clade_id],
+    a[clade_id] ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+labels <- paste( "a[" , 1:4 , "]:" , levels(d$clade) , sep="" )
+
+par(mfcol=c(2,1))
+plot( precis( m5.9_B , depth=2 , pars="a" ) , labels=labels ,
+      main="No conditioning for body mass",
+    xlab="expected kcal (std)" )
+plot( precis( m5.9_A , depth=2 , pars="a" ) , labels=labels ,
+      main="Conditioning on body mass",
+    xlab="expected kcal (std)" )
+```
+
+
+
+# Practise Questions
+
+# Easy
+
+# Medium
+
+# Hard
