@@ -418,6 +418,7 @@ for ( i in 1:100 ) lines( N_seq , prior_mu_2[i,] , col=col.alpha("black",0.3))
 ```
 
 The actual relationship b/w milk energy and neocortex percentage looks something like this:
+
 ```{r}
 plot(d$K ~ d$N, xlab="neocortex percent (std)",
      ylab="kilocal per gram (std)",
@@ -602,6 +603,87 @@ plot( precis( m5.9_A , depth=2 , pars="a" ) , labels=labels ,
 # Practise Questions
 
 # Easy
+
+## 5E1. 
+Which of the linear models below are multiple linear regressions?
+  (1) μi =α+βxi
+  (2) μi = βxxi + βzzi
+  (3) μi = α + β(xi − zi) 
+  (4) μi =α+βxxi +βzzi
+  
+  Answer: 3 and 4, involves two variables in the regression. Although 3 constrains x and z to have the same coefficient. 
+  
+
+## 5E2. 
+Write down a multiple regression to evaluate the claim: Animal diversity is linearly related to latitude, but only after controlling for plant diversity. You just need to write down the model definition.
+
+$$
+Diversity \sim \alpha + \beta_1\mathrm{latitude} + \beta_2\mathrm{plantdiverisity}
+$$
+
+## 5E3. 
+Write down a multiple regression to evaluate the claim: Neither amount of funding nor size of laboratory is by itself a good predictor of time to PhD degree; but together these variables are both positively associated with time to degree. Write down the model definition and indicate which side of zero each slope parameter should be on.
+
+$$
+\mathrm{TimeToDegree} \sim \alpha +
+                  \beta_1\mathrm{Funding} +
+                  \beta_2\mathrm{LabSize} + 
+                  \beta_3\mathrm{LabSize}*\mathrm{Funding}
+$$
+Expected magnitudes of slope parameters: 
+
+$\beta_1$ and $\beta_2$: Centered around 0. 
+$\beta_3$: Positive mean value, no overlap with zero
+
+## 5E4. 
+
+Suppose you have a single categorical predictor with 4 levels (unique values), labeled A, B, C and D. Let Ai be an indicator variable that is 1 where case i is in category A. Also suppose Bi, Ci, and Di for the other categories. Now which of the following linear models are inferentially equivalent ways to include the categorical variable in a regression? Models are inferentially equivalent when it’s possible to compute one posterior distribution from the posterior distribution of another model.
+
+(1) μi = α+βAAi +βBBi +βDDi
+(3) μi = α+βBBi +βCCi +βDDi
+
+(4) μi = αAAi +αBBi +αCCi +αDDi
+(5) μi = αA(1−Bi −Ci −Di)+αBBi +αCCi +αDDi
+
+(2) μi = α+βAAi +βBBi +βCCi +βDDi
+
+We observe that $A_i + B_i + C_i + D_i = 1$. Using this relation, we can rewrite the four expressions as below
+
+For Equations 1 and 3, we can proceed as below.
+$$
+\mu_i = \alpha (A_i + B_i+C_i+D_i) + \beta_AA_i + \beta_BB_i + \beta_DD_i \\
+        = A_i(\alpha+\beta_A) + B_i(\alpha+\beta_B) + C_i(\alpha) + + D_i(\alpha+\beta_D) \\
+        = \theta_AA_i + \theta_BB_i + \theta_CC_i + \theta_DD_i
+$$
+In other words, we can obtain the posterior for all the different categories. $\alpha$ here represents the coefficient for the baseline category, and $\beta$ represents the difference b/w the respective category mean and the baseline category mean.
+
+For Equations 4 and 5, we notice that $1 - B_i - C_i - D_i = A_i$. This makes Eqs 4 and 5 equivalent in form. 
+
+$$
+\mu_i = \beta_AA_i + \beta_AA_i + \beta_BB_i + \beta_DD_i
+$$
+
+Here $\beta$ represents the average outcome of each group.  
+
+Finally we come to Equation 2
+
+$$
+\mu_i = \alpha +  \beta_AA_i + \beta_BB_i + \beta_CC_i + \beta_DD_i  \\
+      = \alpha(A_i + B_i + C_i + D_i) +  \beta_AA_i + \beta_BB_i + \beta_CC_i + \beta_DD_i \\
+      = A_i(\alpha+\beta_A) + B_i(\alpha+\beta_B) + C_i(\alpha) + + D_i(\alpha+\beta_D)
+$$
+Similar to before $\beta$ represents the different of the category mean from the value of $\alpha$. In this case $\alpha$ represents the mean of the whole sample. 
+
+In Conclusion:
+
+Eq 1 and 3 are equivalent in form, but not in inference. The posterior parameters estimated are the mean of the baseline category, and the different b/w baseline category and respective category. However, since the baseline category differs b/w the equations, they are not equivalent in inference.
+
+Eq 4 and 5 are clearly equivalent in form and inference.
+
+Eq 2 is not equivalent in inference to the earlier equations. None of the equations about estimate a parameter for the mean of the whole sample
+
+
+
 
 # Medium
 
